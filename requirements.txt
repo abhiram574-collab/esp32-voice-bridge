@@ -1,0 +1,5 @@
+flask
+groq
+elevenlabs
+python-dotenv
+gunicorn
