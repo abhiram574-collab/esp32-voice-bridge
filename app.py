@@ -1,18 +1,23 @@
 import os
-from flask import Flask, request, send_file
+import io
+from flask import Flask, request, Response
 from groq import Groq
 from elevenlabs.client import ElevenLabs
-import io
 
 app = Flask(__name__)
 
-# Initialize Clients using Environment Variables (for security)
+# Initialize Clients
 client_groq = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 client_eleven = ElevenLabs(api_key=os.environ.get("ELEVENLABS_API_KEY"))
 
+# 1. NEW: Home route to keep UptimeRobot green
+@app.route('/')
+def home():
+    return "ESP32 Voice Bridge is Live and Active!", 200
+
 @app.route('/chat', methods=['POST'])
 def chat():
-    # 1. Get sensor data from ESP32
+    # Get sensor data
     sensor_data = request.data.decode('utf-8')
     
     # 2. Groq generates the response
@@ -22,18 +27,23 @@ def chat():
         max_tokens=50
     )
     text_output = completion.choices[0].message.content
+    print(f"AI Response: {text_output}")
 
-    # 3. ElevenLabs converts to Speech
-    audio_iterator = client_eleven.text_to_speech.convert(
-        text=text_output,
-        voice_id="21m00Tcm4TlvDq8ikWAM", 
-        model_id="eleven_flash_v2_5",
-        output_format="mp3_44100_128"
-    )
+    # 3. ElevenLabs stream generation
+    def generate_audio():
+        audio_stream = client_eleven.text_to_speech.convert(
+            text=text_output,
+            voice_id="21m00Tcm4TlvDq8ikWAM", # Rachel
+            model_id="eleven_flash_v2_5",
+            output_format="mp3_44100_128"
+        )
+        # Yield audio in chunks so ESP32 can play immediately
+        for chunk in audio_stream:
+            if chunk:
+                yield chunk
 
-    # 4. Send the audio file back to the ESP32
-    audio_bytes = b"".join(list(audio_iterator))
-    return send_file(io.BytesIO(audio_bytes), mimetype="audio/mpeg")
+    # 4. Return as a streaming response
+    return Response(generate_audio(), mimetype="audio/mpeg")
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=os.environ.get("PORT", 5000))
