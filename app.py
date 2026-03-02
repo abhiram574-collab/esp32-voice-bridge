@@ -10,7 +10,7 @@ app = Flask(__name__)
 client_groq = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 # Global storage for the latest AI message
-last_ai_text = "The system is ready."
+last_ai_text = "The system is active."
 
 @app.route('/')
 def home():
@@ -21,26 +21,40 @@ def chat():
     global last_ai_text
     
     if request.method == 'POST':
-        # 1. Receive sensor data from ESP32
+        # 1. Receive contextual sensor data from ESP32
         sensor_data = request.data.decode('utf-8')
-        print(f"Received Sensor Data: {sensor_data}")
+        print(f"Received Data: {sensor_data}")
         
-        # 2. Generate response via Groq
+        # 2. Enhanced System Prompt for Groq
+        system_instructions = (
+            "You are a safety navigation assistant for a visually impaired person. "
+            "You will receive distance data from an 8x8 grid sensor. "
+            "PRIORITY RULE: If one zone is significantly closer (e.g., 200mm vs 1000mm), "
+            "focus ONLY on that closest threat. "
+            "SIMILARITY RULE: If Left, Center, and Right have similar close distances, "
+            "warn of a 'wide obstacle' or 'wall' ahead. "
+            "Be extremely brief, calm, and use simple directions."
+        )
+
+        # 3. Generate response via Groq
         try:
             completion = client_groq.chat.completions.create(
                 model="llama-3.1-8b-instant",
-                messages=[{"role": "user", "content": f"The sensor says: {sensor_data}. Give a very short 1-sentence warning for a visually impaired person."}],
-                max_tokens=50
+                messages=[
+                    {"role": "system", "content": system_instructions},
+                    {"role": "user", "content": f"Sensor report: {sensor_data}. What should the user do?"}
+                ],
+                max_tokens=40
             )
             last_ai_text = completion.choices[0].message.content
-            print(f"AI Generated: {last_ai_text}")
-            return "Text Processed", 200
+            print(f"AI Decision: {last_ai_text}")
+            return "Processed", 200
         except Exception as e:
             print(f"Groq Error: {e}")
             return "Groq Error", 500
 
     if request.method == 'GET':
-        # 3. Stream the stored text as audio
+        # 4. Stream the text as audio
         def generate_audio():
             tts = gTTS(text=last_ai_text, lang='en')
             audio_fp = io.BytesIO()
