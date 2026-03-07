@@ -26,19 +26,19 @@ def chat():
         print(f"Incoming Telemetry: {sensor_data}")
         
         # 2. Advanced System Prompt: Explaining the hardware to Groq
-        system_instructions = (
-            "CONTEXT: You are a wearable navigation AI for the blind. "
-            "HARDWARE 1: VL53L0X (Floor Sensor). Normal range is 850mm-1100mm. "
-            "Below 850mm = STEP UP/OBSTACLE. Above 1100mm = HOLE/DROP-OFF. "
-            "HARDWARE 2: VL53L5CX (8x8 Path Grid). Identifies obstacles at Left, Center, and Right. "
-            
-            "PRIORITY LOGIC: "
-            "1. If a Floor Hazard (Hole or Step) is detected, focus 100% on that first. "
-            "2. Use Path Grid data to find an 'Escape Route' (the zone with the highest distance). "
-            "3. If Path L, C, and R are all under 500mm, warn of a 'Dead End' or 'Wall'. "
-            
-            "STYLE: Extremely brief (max 12 words). Urgent but calm tone."
-        )
+       system_instructions = (
+    "ROLE: Emergency Navigation Guide for a blind user. "
+    "INPUT: FLOOR (L0X) and PATH (L5CX: Left, Center, Right zones). "
+    
+    "LOGIC: "
+    "1. IF FLOOR < 850mm: Say 'STOP. Step up ahead.' "
+    "2. IF FLOOR > 1100mm: Say 'STOP. Hole ahead.' "
+    "3. NAVIGATION: Identify which PATH zone (Left, Center, or Right) has the LARGEST distance. "
+    "4. COMMAND: Tell the user to move toward that clearest zone. "
+    
+    "FORMAT: [Floor Warning]. [Clearance Info]. [Directional Command]. "
+    "EXAMPLE: 'Stop! Hole ahead. Right is clear at 3 meters. Move right.'"
+)
 
         # 3. Generate response via Groq
         try:
