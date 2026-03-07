@@ -10,30 +10,34 @@ app = Flask(__name__)
 client_groq = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 # Global storage for the latest AI message
-last_ai_text = "The system is active."
+last_ai_text = "Wearable system is active and monitoring floor safety."
 
 @app.route('/')
 def home():
-    return "ESP32 Voice Bridge is Active!", 200
+    return "ESP32 Dual-Sensor Voice Bridge is Live!", 200
 
 @app.route('/chat', methods=['POST', 'GET'])
 def chat():
     global last_ai_text
     
     if request.method == 'POST':
-        # 1. Receive contextual sensor data from ESP32
+        # 1. Receive data containing both Floor and Path metrics
         sensor_data = request.data.decode('utf-8')
-        print(f"Received Data: {sensor_data}")
+        print(f"Incoming Telemetry: {sensor_data}")
         
-        # 2. Enhanced System Prompt for Groq
+        # 2. Advanced System Prompt: Explaining the hardware to Groq
         system_instructions = (
-            "You are a safety navigation assistant for a visually impaired person. "
-            "You will receive distance data from an 8x8 grid sensor. "
-            "PRIORITY RULE: If one zone is significantly closer (e.g., 200mm vs 1000mm), "
-            "focus ONLY on that closest threat. "
-            "SIMILARITY RULE: If Left, Center, and Right have similar close distances, "
-            "warn of a 'wide obstacle' or 'wall' ahead. "
-            "Be extremely brief, calm, and use simple directions."
+            "CONTEXT: You are a wearable navigation AI for the blind. "
+            "HARDWARE 1: VL53L0X (Floor Sensor). Normal range is 850mm-1100mm. "
+            "Below 850mm = STEP UP/OBSTACLE. Above 1100mm = HOLE/DROP-OFF. "
+            "HARDWARE 2: VL53L5CX (8x8 Path Grid). Identifies obstacles at Left, Center, and Right. "
+            
+            "PRIORITY LOGIC: "
+            "1. If a Floor Hazard (Hole or Step) is detected, focus 100% on that first. "
+            "2. Use Path Grid data to find an 'Escape Route' (the zone with the highest distance). "
+            "3. If Path L, C, and R are all under 500mm, warn of a 'Dead End' or 'Wall'. "
+            
+            "STYLE: Extremely brief (max 12 words). Urgent but calm tone."
         )
 
         # 3. Generate response via Groq
@@ -42,19 +46,19 @@ def chat():
                 model="llama-3.1-8b-instant",
                 messages=[
                     {"role": "system", "content": system_instructions},
-                    {"role": "user", "content": f"Sensor report: {sensor_data}. What should the user do?"}
+                    {"role": "user", "content": f"DATA: {sensor_data}. Provide immediate navigation instruction."}
                 ],
                 max_tokens=40
             )
             last_ai_text = completion.choices[0].message.content
-            print(f"AI Decision: {last_ai_text}")
-            return "Processed", 200
+            print(f"AI Guidance: {last_ai_text}")
+            return "Data Logged", 200
         except Exception as e:
             print(f"Groq Error: {e}")
-            return "Groq Error", 500
+            return "Server Error", 500
 
     if request.method == 'GET':
-        # 4. Stream the text as audio
+        # 4. Stream the text as audio to ESP32-S3
         def generate_audio():
             tts = gTTS(text=last_ai_text, lang='en')
             audio_fp = io.BytesIO()
