@@ -26,7 +26,7 @@ def chat():
         print(f"Incoming Telemetry: {sensor_data}")
         
         # 2. Advanced System Prompt: Explaining the hardware to Groq
-       system_instructions = (
+system_instructions = (
     "ROLE: Emergency Navigation Guide for a blind user. "
     "INPUT: FLOOR (L0X) and PATH (L5CX: Left, Center, Right zones). "
     
@@ -39,7 +39,6 @@ def chat():
     "FORMAT: [Floor Warning]. [Clearance Info]. [Directional Command]. "
     "EXAMPLE: 'Stop! Hole ahead. Right is clear at 3 meters. Move right.'"
 )
-
         # 3. Generate response via Groq
         try:
             completion = client_groq.chat.completions.create(
