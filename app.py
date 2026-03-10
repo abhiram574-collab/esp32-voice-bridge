@@ -1,12 +1,13 @@
 import os
 import io
-from flask import Flask, request, Response
+from flask import Flask, request, Response, send_file
 from groq import Groq
 from gtts import gTTS
 
 app = Flask(__name__)
 
 # Initialize Groq Client
+# Set "GROQ_API_KEY" in Render's Environment Variables dashboard
 client_groq = Groq(api_key=os.environ.get("GROQ_API_KEY"))
 
 # Global storage for the latest AI message
@@ -25,7 +26,7 @@ def chat():
         sensor_data = request.data.decode('utf-8')
         print(f"Received Data: {sensor_data}")
         
-        # 2. Enhanced System Prompt for Groq
+        # 2. Your Specific System Prompt for Groq
         system_instructions = (
             "You are a safety navigation assistant for a visually impaired person. "
             "You will receive distance data from an 8x8 grid sensor. "
@@ -46,7 +47,7 @@ def chat():
                 ],
                 max_tokens=40
             )
-            last_ai_text = completion.choices[0].message.content
+            last_ai_text = completion.choices[0].message.content.strip()
             print(f"AI Decision: {last_ai_text}")
             return "Processed", 200
         except Exception as e:
@@ -55,18 +56,23 @@ def chat():
 
     if request.method == 'GET':
         # 4. Stream the text as audio
-        def generate_audio():
+        try:
             tts = gTTS(text=last_ai_text, lang='en')
             audio_fp = io.BytesIO()
             tts.write_to_fp(audio_fp)
             audio_fp.seek(0)
-            while True:
-                chunk = audio_fp.read(1024)
-                if not chunk:
-                    break
-                yield chunk
-
-        return Response(generate_audio(), mimetype="audio/mpeg")
+            
+            # This returns the MP3 file to the ESP32 Audio library
+            return send_file(
+                audio_fp, 
+                mimetype="audio/mpeg",
+                as_attachment=False
+            )
+        except Exception as e:
+            print(f"TTS Error: {e}")
+            return "Audio Generation Error", 500
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+    # Render uses the PORT environment variable
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
