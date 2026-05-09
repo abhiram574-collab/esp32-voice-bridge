@@ -10,12 +10,12 @@ app = Flask(__name__)
 api_key = os.environ.get("GROQ_API_KEY")
 client_groq = Groq(api_key=api_key)
 
-# Global storage for the latest AI message
-last_ai_text = "സിസ്റ്റം തയ്യാറാണ്" # "System is ready" in Malayalam
+# Global storage
+last_ai_text = "സിസ്റ്റം സജ്ജമാണ്" 
 
 @app.route('/')
 def home():
-    return "ESP32 Malayalam Voice Bridge Online", 200
+    return "AI Navigation Brain Online", 200
 
 @app.route('/chat', methods=['POST', 'GET'])
 def chat():
@@ -26,28 +26,24 @@ def chat():
             sensor_data = request.data.decode('utf-8')
             print(f"📥 Received Data: {sensor_data}")
             
-            # --- MALAYALAM SYSTEM INSTRUCTIONS ---
+            # --- UPDATED "SMART GUIDE" INSTRUCTIONS ---
             system_instructions = (
-                "You are a safety navigation assistant for a visually impaired person. "
-                "You will receive sensor data about the floor and the path ahead. "
-                "CRITICAL: Your response must be ONLY in Malayalam. "
-                "Keep instructions extremely short (under 5 words). "
-                "Examples: "
-                "- 'മുന്നിൽ തടസ്സമുണ്ട്' (Obstacle ahead) "
-                "- 'ഇടത്തോട്ട് നീങ്ങുക' (Move left) "
-                "- 'വലത്തോട്ട് തടസ്സമുണ്ട്' (Obstacle on right) "
-                "- 'കുഴി ശ്രദ്ധിക്കുക' (Watch out for the hole/drop) "
-                "Be calm and direct."
+                "You are an expert navigation assistant. Analyze the Path distances (Left, Center, Right) and decide the best move. "
+                "CRITICAL RULES: "
+                "1. Mention the distance in meters or centimeters (convert mm to m/cm). "
+                "2. If the Center is blocked, compare Left and Right. Tell the user which side is clearer. "
+                "3. Use natural Malayalam. Avoid talking about 'Floor' or 'Holes' entirely. "
+                "4. Be precise but very brief. "
+                "Example response: 'നേരെ ഒരു മീറ്ററിൽ തടസ്സമുണ്ട്, ഇടതുവശത്തേക്ക് നീങ്ങുക' (Obstacle at 1m front, move left)."
             )
 
-            # Generate response via Groq
             completion = client_groq.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 messages=[
                     {"role": "system", "content": system_instructions},
-                    {"role": "user", "content": f"Sensor report: {sensor_data}"}
+                    {"role": "user", "content": f"Sensor report: {sensor_data}. Analyze and guide the user."}
                 ],
-                max_tokens=60 # Malayalam characters use more tokens
+                max_tokens=80 
             )
             
             last_ai_text = completion.choices[0].message.content.strip()
@@ -60,20 +56,12 @@ def chat():
 
     if request.method == 'GET':
         try:
-            # --- LANGUAGE CHANGED TO 'ml' ---
             tts = gTTS(text=last_ai_text, lang='ml')
-            
             audio_fp = io.BytesIO()
             tts.write_to_fp(audio_fp)
             audio_fp.seek(0)
-            
-            return send_file(
-                audio_fp, 
-                mimetype="audio/mpeg",
-                as_attachment=False
-            )
+            return send_file(audio_fp, mimetype="audio/mpeg", as_attachment=False)
         except Exception as e:
-            print(f"❌ TTS Error: {e}")
             return "Audio Error", 500
 
 if __name__ == "__main__":
